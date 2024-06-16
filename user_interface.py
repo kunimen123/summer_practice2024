@@ -2,7 +2,6 @@
 from database import session
 from models import User, Item
 
-
 def user_list():
     print("\nСписок всех пользователей:")
     users = session.query(User).all()
@@ -50,7 +49,7 @@ def user_main_menu(user):
         if choice == "1":
             view_profile(user)
         elif choice == "2":
-            view_marketplace()
+            view_marketplace(user)
         elif choice == "3":
             print("Выход из системы...")
             break
@@ -136,14 +135,100 @@ def change_item_price(user):
     else:
         print("Предмет не найден или вы не являетесь его владельцем.")
 
-def view_marketplace():
+def view_marketplace(user):
     print("\nТорговая площадка:")
-    items = session.query(Item).all()
+    categories = ["Одежда", "Курьеры", "Варды", "Ключи", "Экраны", "Руны", "Интерфейсы", "Игроки", "Комментаторы"]
+
+    # Подсчитываем количество предметов в каждой категории, исключая предметы текущего пользователя
+    category_counts = {}
+    for category in categories:
+        count = session.query(Item).filter(Item.item_type == category, Item.owner != user).count()
+        category_counts[category] = count
+
+    for category, count in category_counts.items():
+        print(f"{category}: {count} предметов")
+
+    while True:
+        selected_category = input("\nВведите категорию для просмотра предметов (или 'выход' для возврата в меню): ")
+        if selected_category.lower() == 'выход':
+            break
+        elif selected_category in categories:
+            view_category_items(user, selected_category)
+        else:
+            print("Неверная категория. Попробуйте снова.")
+
+def view_category_items(user, category):
+    print(f"\nПредметы категории {category}:")
+    items = session.query(Item).filter(Item.item_type == category, Item.owner != user).all()
     if items:
-        for item in items:
-            print(f"Название: {item.name}, Описание: {item.description}, Тип: {item.item_type}, Цена: {item.price}")
+        for idx, item in enumerate(items):
+            print(f"{idx + 1}. Название: {item.name}, Описание: {item.description}, Цена: {item.price}")
+        
+        while True:
+            choice = input("\nВведите номер предмета для просмотра опций (или 'выход' для возврата к категориям): ")
+            if choice.lower() == 'выход':
+                break
+            elif choice.isdigit() and int(choice):
+                view_item_options(user, session.query(Item).get(int(choice)))
+            else:
+                print("Неверный выбор. Попробуйте снова.")
     else:
-        print("Торговая площадка пуста.")
+        print("В этой категории нет доступных предметов.")
+
+def view_category_items(user, category):
+    print(f"\nПредметы категории {category}:")
+    items = session.query(Item).filter(Item.item_type == category, Item.owner != user).all()
+    if items:
+        for idx, item in enumerate(items):
+            print(f"{idx + 1}. Название: {item.name}, Описание: {item.description}, Цена: {item.price}")
+        
+        while True:
+            choice = input("\nВведите номер предмета для просмотра опций (или 'выход' для возврата к категориям): ")
+            if choice.lower() == 'выход':
+                break
+            elif choice.isdigit() and 1 <= int(choice) <= len(items):
+                view_item_options(user, items[int(choice) - 1])
+            else:
+                print("Неверный выбор. Попробуйте снова.")
+    else:
+        print("В этой категории нет доступных предметов.")
+
+def view_item_options(user, item):
+    while True:
+        print(f"\nВыбранный предмет: {item.name}, Владелец: {item.owner.nickname}, Цена: {item.price}, ID: {item.id}")
+        print("1. Купить предмет")
+        print("2. Вернуться к категориям")
+        choice = input("Выберите опцию: ")
+
+        if choice == "1":
+            buy_item(user, item)
+        elif choice == "2":
+            break
+        else:
+            print("Неверный выбор. Попробуйте снова.")
+
+def buy_item(user, item):
+    print(f"\nПокупка предмета: {item.name}")
+    owner_nickname = input("Введите никнейм владельца предмета: ")
+    item_number = input("Введите номер предмета в инвентаре владельца: ")
+    owner = session.query(User).filter_by(nickname=owner_nickname).first()
+    if owner:
+        items = session.query(Item).filter_by(owner=owner).all()
+        if items and 0 < int(item_number) <= len(items) and items[int(item_number) - 1] == item:
+            if user.balance >= item.price:
+                user.balance -= item.price
+                owner.balance += item.price
+                item.owner = user
+                session.commit()
+                print(f"Предмет {item.name} успешно куплен!")
+                return
+            else:
+                print("Недостаточно средств для покупки этого предмета.")
+        else:
+            print("Предмет не найден в инвентаре указанного пользователя.")
+    else:
+        print("Пользователь с указанным никнеймом не найден.")
+
 
 def main_menu():
     while True:
