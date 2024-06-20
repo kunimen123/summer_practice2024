@@ -210,15 +210,15 @@ def view_item_options(user, item):
 def buy_item(user, item):
     print(f"\nПокупка предмета: {item.name}")
     owner_nickname = input("Введите никнейм владельца предмета: ")
-    item_number = input("Введите номер предмета в инвентаре владельца: ")
+    item_number = input("Введите ID предмета в инвентаре владельца: ")
     owner = session.query(User).filter_by(nickname=owner_nickname).first()
     if owner:
         items = session.query(Item).filter_by(owner=owner).all()
-        if items and 0 < int(item_number) <= len(items) and items[int(item_number) - 1] == item:
+        if items and int(item_number) == int(item.id):
             if user.balance >= item.price:
                 user.balance -= item.price
                 owner.balance += item.price
-                item.owner = user
+                owner.sales_count += 1
                 session.commit()
                 print(f"Предмет {item.name} успешно куплен!")
                 return
